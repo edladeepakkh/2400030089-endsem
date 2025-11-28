@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Fetch & Display Students — Vanilla JS</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            padding: 20px;
+            background: #f7f7f7;
+        }
+
+        .controls {
+            margin-bottom: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .card {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 12px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+        }
+
+        .meta {
+            color: #555;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .error {
+            color: #b00020;
+            margin: 12px 0;
+        }
+
+        .loading {
+            color: #333;
+            margin: 12px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Student Directory (dummy API)</h2>
+    <div class="controls">
+        <button id="reloadBtn">Reload</button>
+        <label style="margin-left:10px">
+            Use <select id="displayMode">
+                <option value="cards">Cards</option>
+                <option value="table">Table</option>
+            </select>
+        </label>
+    </div>
+
+    <div id="status"></div>
+    <div id="container"></div>
+
+    <script>
+        const API = 'https://dummyjson.com/users';
+
+        const statusEl = document.getElementById('status');
+        const container = document.getElementById('container');
+        const reloadBtn = document.getElementById('reloadBtn');
+        const displayMode = document.getElementById('displayMode');
+
+        reloadBtn.addEventListener('click', fetchAndRender);
+        displayMode.addEventListener('change', () => { if (window.lastData) render(window.lastData); });
+
+        async function fetchAndRender() {
+            statusEl.innerHTML = '<div class="loading">Loading students…</div>';
+            container.innerHTML = '';
+            try {
+                const res = await fetch(API);
+                if (!res.ok) throw new Error('Network response not OK: ' + res.status);
+                const json = await res.json();
+                const students = json.users || json; // dummyjson returns {users: [...]}
+                window.lastData = students;
+                statusEl.innerHTML = '';
+                render(students);
+            } catch (err) {
+                console.error(err);
+                statusEl.innerHTML = `<div class="error">Failed to load students: ${err.message}</div>`;
+            }
+        }
+
+        function render(students) {
+            const mode = displayMode.value;
+            if (mode === 'table') {
+                renderTable(students);
+            } else {
+                renderCards(students);
+            }
+        }
+
+        function renderCards(students) {
+            container.innerHTML = '';
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            students.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+      <div class="row">
+        <img src="${s.image || s.photo || 'https://via.placeholder.com/48'}" class="avatar" alt="avatar">
+        <div>
+          <div style="font-weight:600">${escapeHTML(fullName(s))}</div>
+          <div style="font-size:13px;color:#666">${escapeHTML(s.university || s.company?.name || s.maidenName || s.email)}</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div>Age: ${s.age ?? '—'} • Phone: ${escapeHTML(s.phone ?? '—')}</div>
+        <div>City: ${escapeHTML(s.address?.city ?? s.address?.state ?? '—')}</div>
+      </div>
+    `;
+                grid.appendChild(card);
+            });
+            container.appendChild(grid);
+        }
+
+        function renderTable(students) {
+            container.innerHTML = '';
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.innerHTML = `
+    <thead>
+      <tr style="text-align:left; background:#eee">
+        <th style="padding:8px">Name</th>
+        <th style="padding:8px">Email</th>
+        <th style="padding:8px">Age</th>
+        <th style="padding:8px">Phone</th>
+        <th style="padding:8px">City</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+            const tbody = table.querySelector('tbody');
+            students.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+      <td style="padding:8px;border-bottom:1px solid #f0f0f0">${escapeHTML(fullName(s))}</td>
+      <td style="padding:8px;border-bottom:1px solid #f0f0f0">${escapeHTML(s.email ?? '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #f0f0f0">${s.age ?? '—'}</td>
+      <td style="padding:8px;border-bottom:1px solid #f0f0f0">${escapeHTML(s.phone ?? '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #f0f0f0">${escapeHTML(s.address?.city ?? '—')}</td>
+    `;
+                tbody.appendChild(tr);
+            });
+            container.appendChild(table);
+        }
+
+        function fullName(s) {
+            if (!s) return '';
+            return [s.firstName, s.lastName].filter(Boolean).join(' ') || s.username || s.name || 'Unknown';
+        }
+
+        function escapeHTML(str) {
+            if (!str && str !== 0) return '';
+            return String(str).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '<', '>': '>', '"': '"', "'": '&#39;' }[ch]));
+        }
+
+        // initial load
+        fetchAndRender();
+    </script>
+</body>
+
+</html>
